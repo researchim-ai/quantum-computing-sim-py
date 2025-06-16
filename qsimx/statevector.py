@@ -85,6 +85,24 @@ class StateVector:
         gate = gate.to(self.tensor)
         self._apply_single_qubit_gate(gate, qubit)
 
+    def ry(self, qubit: int, theta: torch.Tensor | float) -> None:
+        """Поворот вокруг Y-оси."""
+        theta_t = torch.as_tensor(theta, dtype=self.tensor.real.dtype, device=self.device)
+        cos = torch.cos(theta_t / 2)
+        sin = torch.sin(theta_t / 2)
+        gate = torch.stack(
+            [torch.stack([cos, -sin]), torch.stack([sin, cos])]
+        ).to(self.tensor)
+        self._apply_single_qubit_gate(gate, qubit)
+
+    def rz(self, qubit: int, theta: torch.Tensor | float) -> None:
+        """Поворот вокруг Z-оси."""
+        theta_t = torch.as_tensor(theta, dtype=self.tensor.real.dtype, device=self.device)
+        phase = torch.exp(-0.5j * theta_t)
+        gate = torch.diag(torch.stack([phase.conj(), phase]))  # [[e^{-iθ/2},0],[0,e^{iθ/2}]]
+        gate = gate.to(self.tensor)
+        self._apply_single_qubit_gate(gate, qubit)
+
     # ---------------------------------------------------------------------
     # Двухкубитные гейты
     # ---------------------------------------------------------------------
@@ -120,9 +138,15 @@ class StateVector:
         """Вернуть распределение вероятностей |ψ|² в виде 1-D тензора."""
         return self.tensor.abs() ** 2
 
-    def measure_all(self) -> torch.Tensor:
-        """Сэмплировать одно наблюдение по всем кубитам."""
+    def sample(self, shots: int = 1024) -> torch.Tensor:
+        """Вернуть ``shots`` сэмплов измерений всех кубитов.
+
+        Возвращает 1-D тензор целых чисел размера ``shots``.
+        """
         probs = self.probabilities()
         dist = torch.distributions.Categorical(probs)
-        outcome = dist.sample()
-        return outcome 
+        return dist.sample((shots,))
+
+    def measure_all(self) -> torch.Tensor:
+        """Устаревший алиас к ``sample(shots=1)[0]``."""
+        return self.sample(shots=1)[0] 

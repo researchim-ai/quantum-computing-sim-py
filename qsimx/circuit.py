@@ -45,6 +45,14 @@ class QuantumCircuit:
         self._ops.append(("cx", (control, target)))
         return self
 
+    def ry(self, qubit: int, theta: float | torch.Tensor) -> "QuantumCircuit":
+        self._ops.append(("ry", (qubit, theta)))
+        return self
+
+    def rz(self, qubit: int, theta: float | torch.Tensor) -> "QuantumCircuit":
+        self._ops.append(("rz", (qubit, theta)))
+        return self
+
     # ------------------------------------------------------------------
     # Симуляция
     # ------------------------------------------------------------------
