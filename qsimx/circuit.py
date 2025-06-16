@@ -53,6 +53,34 @@ class QuantumCircuit:
         self._ops.append(("rz", (qubit, theta)))
         return self
 
+    def y(self, qubit: int) -> "QuantumCircuit":
+        self._ops.append(("y", (qubit,)))
+        return self
+
+    def s(self, qubit: int) -> "QuantumCircuit":
+        self._ops.append(("s", (qubit,)))
+        return self
+
+    def sdg(self, qubit: int) -> "QuantumCircuit":
+        self._ops.append(("sdg", (qubit,)))
+        return self
+
+    def t(self, qubit: int) -> "QuantumCircuit":
+        self._ops.append(("t", (qubit,)))
+        return self
+
+    def tdg(self, qubit: int) -> "QuantumCircuit":
+        self._ops.append(("tdg", (qubit,)))
+        return self
+
+    def swap(self, q1: int, q2: int) -> "QuantumCircuit":
+        self._ops.append(("swap", (q1, q2)))
+        return self
+
+    def cz(self, control: int, target: int) -> "QuantumCircuit":
+        self._ops.append(("cz", (control, target)))
+        return self
+
     # ------------------------------------------------------------------
     # Симуляция
     # ------------------------------------------------------------------

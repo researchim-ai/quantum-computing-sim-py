@@ -32,3 +32,21 @@ def test_sample_shots_shape():
     assert samples.shape == (shots,)
     assert samples.dtype in (torch.int64, torch.long)
     assert samples.min() >= 0 and samples.max() < 8  # 2**3 = 8 
+
+
+def test_cz_phase_flip():
+    sv = StateVector(2)
+    sv.x(0)
+    sv.x(1)  # подготавливаем |11>
+    sv.cz(0, 1)
+    # фаза -|11>
+    expected = torch.tensor([0, 0, 0, -1], dtype=sv.dtype, device=sv.device)
+    assert torch.allclose(sv.tensor, expected)
+
+
+def test_swap_gate():
+    sv = StateVector(2)
+    sv.x(0)  # |10>
+    sv.swap(0, 1)
+    expected = torch.tensor([0, 1, 0, 0], dtype=sv.dtype, device=sv.device)  # |01>
+    assert torch.allclose(sv.tensor, expected) 

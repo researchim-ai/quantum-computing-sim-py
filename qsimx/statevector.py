@@ -103,6 +103,27 @@ class StateVector:
         gate = gate.to(self.tensor)
         self._apply_single_qubit_gate(gate, qubit)
 
+    def y(self, qubit: int) -> None:
+        """Pauli-Y."""
+        gate = torch.tensor([[0, -1j], [1j, 0]], dtype=self.dtype, device=self.device)
+        self._apply_single_qubit_gate(gate, qubit)
+
+    def s(self, qubit: int) -> None:
+        """Phase S = Rz(π/2)."""
+        self.rz(qubit, math.pi / 2)
+
+    def sdg(self, qubit: int) -> None:
+        """S† = Rz(-π/2)."""
+        self.rz(qubit, -math.pi / 2)
+
+    def t(self, qubit: int) -> None:
+        """T = Rz(π/4)."""
+        self.rz(qubit, math.pi / 4)
+
+    def tdg(self, qubit: int) -> None:
+        """T† = Rz(-π/4)."""
+        self.rz(qubit, -math.pi / 4)
+
     # ---------------------------------------------------------------------
     # Двухкубитные гейты
     # ---------------------------------------------------------------------
@@ -130,6 +151,42 @@ class StateVector:
         temp = self.tensor[idx_target0].clone()
         self.tensor[idx_target0] = self.tensor[idx_target1]
         self.tensor[idx_target1] = temp
+
+    # ---------------------------------------------------------------------
+    # Двухкубитные расширенные гейты
+    # ---------------------------------------------------------------------
+    def swap(self, qubit1: int, qubit2: int) -> None:
+        """SWAP: обмен состояниями двух кубитов."""
+        if qubit1 == qubit2:
+            return
+        n = self.num_qubits
+        if not (0 <= qubit1 < n and 0 <= qubit2 < n):
+            raise IndexError("Неверный индекс кубита")
+        mask1 = 1 << qubit1
+        mask2 = 1 << qubit2
+        dim = 1 << n
+        idx = torch.arange(dim, device=self.device)
+        # индексы, где биты различаются (01)
+        cond = ((idx & mask1) == 0) & ((idx & mask2) != 0)
+        idx_a = idx[cond]
+        idx_b = idx_a ^ (mask1 | mask2)
+        temp = self.tensor[idx_a].clone()
+        self.tensor[idx_a] = self.tensor[idx_b]
+        self.tensor[idx_b] = temp
+
+    def cz(self, control: int, target: int) -> None:
+        """Контролируемый Z: умножает амплитуды |11⟩ на -1."""
+        if control == target:
+            raise ValueError("control и target должны различаться")
+        n = self.num_qubits
+        if not (0 <= control < n and 0 <= target < n):
+            raise IndexError("Неверный индекс кубита")
+        control_mask = 1 << control
+        target_mask = 1 << target
+        dim = 1 << n
+        idx = torch.arange(dim, device=self.device)
+        cond = ((idx & control_mask) != 0) & ((idx & target_mask) != 0)
+        self.tensor[cond] *= -1
 
     # ---------------------------------------------------------------------
     # API вспомогательные
