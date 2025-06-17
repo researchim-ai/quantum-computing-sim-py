@@ -49,4 +49,31 @@ def test_swap_gate():
     sv.x(0)  # |10>
     sv.swap(0, 1)
     expected = torch.tensor([0, 1, 0, 0], dtype=sv.dtype, device=sv.device)  # |01>
-    assert torch.allclose(sv.tensor, expected) 
+    assert torch.allclose(sv.tensor, expected)
+
+
+def test_u3_vs_rz_ry_rz():
+    theta, phi, lam = 0.2, 0.4, -0.1
+    sv1 = StateVector(1)
+    sv1.u3(0, theta, phi, lam)
+
+    sv2 = StateVector(1)
+    sv2.rz(0, lam)
+    sv2.ry(0, theta)
+    sv2.rz(0, phi)
+
+    assert torch.allclose(sv1.tensor, sv2.tensor, atol=1e-6)
+
+
+def test_counts():
+    sv = StateVector(2)
+    sv.h(0)
+    shots = 1000
+    cnts = sv.counts(shots=shots)
+    total = sum(cnts.values())
+    assert total == shots
+    # только биты 00 и 01 возможны (little-endian порядок)
+    for bs in cnts:
+        assert bs in {"00", "01"}
+
+    # little-endian order; allow variability 

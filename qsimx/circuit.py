@@ -81,6 +81,10 @@ class QuantumCircuit:
         self._ops.append(("cz", (control, target)))
         return self
 
+    def u3(self, qubit: int, theta, phi, lam) -> "QuantumCircuit":
+        self._ops.append(("u3", (qubit, theta, phi, lam)))
+        return self
+
     # ------------------------------------------------------------------
     # Симуляция
     # ------------------------------------------------------------------

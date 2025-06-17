@@ -206,4 +206,69 @@ class StateVector:
 
     def measure_all(self) -> torch.Tensor:
         """Устаревший алиас к ``sample(shots=1)[0]``."""
-        return self.sample(shots=1)[0] 
+        return self.sample(shots=1)[0]
+
+    # ---------------------------------------------------------------------
+    # Сэмплы и статистика
+    # ---------------------------------------------------------------------
+    def sample_bits(
+        self,
+        *,
+        shots: int = 1024,
+        qubits: Sequence[int] | None = None,
+        bit_order: str = "little",
+    ) -> torch.Tensor:
+        """Сэмплировать ``shots`` измерений указанных кубитов.
+
+        Параметры
+        ----------
+        shots:
+            Количество сэмплов.
+        qubits:
+            Последовательность индексов кубитов (по умолчанию *все*).
+        bit_order:
+            ``"little"`` (LSB — qubit-0) или ``"big"``.
+
+        Возвращает
+        ---------
+        torch.Tensor
+            ``shots × len(qubits)`` тензор типа ``int64`` (биты 0/1).
+        """
+        full_samples = self.sample(shots=shots)
+        if qubits is None:
+            qubits = list(range(self.num_qubits))
+        qubits = list(qubits)
+        if bit_order == "big":
+            qubits = qubits[::-1]
+        bits = [(full_samples >> q) & 1 for q in qubits]
+        return torch.stack(bits, dim=1)  # shape (shots, len(qubits))
+
+    def counts(
+        self,
+        *,
+        shots: int = 1024,
+        qubits: Sequence[int] | None = None,
+        bit_order: str = "little",
+    ) -> dict[str, int]:
+        """Возвращает словарь bitstring → частота."""
+        bit_arr = self.sample_bits(shots=shots, qubits=qubits, bit_order=bit_order)
+        bitstrings = ["".join(map(str, row.tolist())) for row in bit_arr]
+        freq: dict[str, int] = {}
+        for bs in bitstrings:
+            freq[bs] = freq.get(bs, 0) + 1
+        return freq
+
+    # ---------------------------------------------------------------------
+    # Универсальный однокубитный гейт U3
+    # ---------------------------------------------------------------------
+    def u3(
+        self,
+        qubit: int,
+        theta: torch.Tensor | float,
+        phi: torch.Tensor | float,
+        lam: torch.Tensor | float,
+    ) -> None:
+        """U3(θ, φ, λ) = Rz(φ) · Ry(θ) · Rz(λ)."""
+        self.rz(qubit, lam)
+        self.ry(qubit, theta)
+        self.rz(qubit, phi) 
