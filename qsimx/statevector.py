@@ -20,6 +20,8 @@ class StateVector:
         Тип данных ``torch`` (по умолчанию ``torch.complex64``).
     device:
         Устройство PyTorch (``"cuda"`` или ``"cpu"``).
+    autorescale:
+        Флаг для автоматического рескейлинга амплитуд (по умолчанию False).
     """
 
     def __init__(
@@ -28,12 +30,14 @@ class StateVector:
         *,
         dtype: torch.dtype | None = None,
         device: torch.device | str | None = None,
+        autorescale: bool = False,
     ) -> None:
         if num_qubits <= 0:
             raise ValueError("num_qubits должно быть ≥ 1")
         self.num_qubits = num_qubits
         self.dtype: torch.dtype = dtype or torch.complex64
         self.device = torch.device(device or ("cuda" if torch.cuda.is_available() else "cpu"))
+        self.autorescale = autorescale
 
         dim: int = 1 << num_qubits  # 2**n
         self.tensor: torch.Tensor = torch.zeros(dim, dtype=self.dtype, device=self.device)
@@ -58,6 +62,7 @@ class StateVector:
         # einsum: a,b -> new amplitude
         # gate @ [amp0, amp1]
         self.tensor = torch.einsum("ab, ibj -> iaj", gate.to(self.tensor), sv).reshape(-1)
+        self._maybe_rescale()
 
     def h(self, qubit: int) -> None:
         """Hadamard гейт."""
@@ -151,6 +156,7 @@ class StateVector:
         temp = self.tensor[idx_target0].clone()
         self.tensor[idx_target0] = self.tensor[idx_target1]
         self.tensor[idx_target1] = temp
+        self._maybe_rescale()
 
     # ---------------------------------------------------------------------
     # Двухкубитные расширенные гейты
@@ -173,6 +179,7 @@ class StateVector:
         temp = self.tensor[idx_a].clone()
         self.tensor[idx_a] = self.tensor[idx_b]
         self.tensor[idx_b] = temp
+        self._maybe_rescale()
 
     def cz(self, control: int, target: int) -> None:
         """Контролируемый Z: умножает амплитуды |11⟩ на -1."""
@@ -187,6 +194,7 @@ class StateVector:
         idx = torch.arange(dim, device=self.device)
         cond = ((idx & control_mask) != 0) & ((idx & target_mask) != 0)
         self.tensor[cond] *= -1
+        self._maybe_rescale()
 
     # ---------------------------------------------------------------------
     # API вспомогательные
@@ -277,7 +285,7 @@ class StateVector:
     # Вспомогательные
     # ---------------------------------------------------------------------
     def _mask(self, qubit: int) -> int:
-        """Возвращает битовую маску, соответствующую ``qubit`` с учётом big-endian хранения."""
+        """Возвратить битовую маску для qubit (big-endian)."""
         return 1 << (self.num_qubits - qubit - 1)
 
     # ---------------------------------------------------------------------
@@ -291,25 +299,23 @@ class StateVector:
         return (sign * (self.tensor.abs() ** 2)).sum().real
 
     def exp_x(self, qubit: int) -> torch.Tensor:
-        """Ожидание X на ``qubit`` (⟨X⟩)."""
+        """⟨X_q⟩ для данного состояния."""
         mask = self._mask(qubit)
         idx = torch.arange(self.tensor.numel(), device=self.device)
-        idx0 = idx[(idx & mask) == 0]
-        idx1 = idx0 ^ mask
-        amp0 = self.tensor[idx0]
-        amp1 = self.tensor[idx1]
-        return (2 * torch.real((amp0.conj() * amp1).sum())).real
+        amp = self.tensor
+        amp_flip = amp[idx ^ mask]
+        return torch.real((amp.conj() * amp_flip).sum())
 
     def exp_y(self, qubit: int) -> torch.Tensor:
-        """Ожидание Y на ``qubit``."""
+        """⟨Y_q⟩."""
         mask = self._mask(qubit)
         idx = torch.arange(self.tensor.numel(), device=self.device)
-        idx0 = idx[(idx & mask) == 0]
-        idx1 = idx0 ^ mask
-        amp0 = self.tensor[idx0]
-        amp1 = self.tensor[idx1]
-        # Y expectation: 2*Im( conj(a)*b )
-        return (2 * torch.imag((amp0.conj() * amp1).sum())).real
+        bit = ((idx & mask) != 0).to(torch.float32)
+        phase = (1 - 2 * bit)  # +1 for bit=0, -1 for bit=1 => corresponds to -i^{bit}
+        amp = self.tensor
+        amp_flip = amp[idx ^ mask]
+        val = (-1j) * phase * amp_flip  # matrix element
+        return torch.real((amp.conj() * val).sum())
 
     def exp_z_string(self, qubits: Sequence[int]) -> torch.Tensor:
         """Ожидание тензорного произведения ZᵢZⱼ…"""
@@ -317,5 +323,18 @@ class StateVector:
         sign = torch.ones_like(idx, dtype=self.tensor.dtype)
         for q in qubits:
             m = self._mask(q)
-            sign *= 1 - 2 * (((idx & m) != 0).to(self.tensor))
-        return (sign * (self.tensor.abs() ** 2)).sum().real 
+            sign *= 1 - 2 * ((idx & m).ne(0)).to(self.tensor)
+        return (sign * (self.tensor.abs() ** 2)).sum().real
+
+    # ---------------------------------------------------------------------
+    # Внутреннее: авто-рескейл
+    # ---------------------------------------------------------------------
+    def _maybe_rescale(self) -> None:
+        if not self.autorescale:
+            return
+        max_abs = self.tensor.abs().max()
+        # если значения вышли за диапазон fp16 (≈ 65504), нормируем на L2
+        if max_abs > 32.0:  # безопасный предел для fp16 при сложении
+            self.tensor /= max_abs
+        elif max_abs < 1e-4 and max_abs != 0.0:
+            self.tensor /= max_abs 

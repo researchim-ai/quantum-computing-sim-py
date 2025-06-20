@@ -116,3 +116,11 @@ def test_simulate_jit():
     state_jit = circ.simulate(jit=True)
     state_ref = circ.simulate()
     assert torch.allclose(state_jit, state_ref, atol=1e-6) 
+
+def test_autorescale_fp16():
+    sv = StateVector(1, dtype=torch.complex64, autorescale=True)
+    # применяем много X чтобы значения не изменялись, но нарушение амплитуды будет отсутствовать
+    for _ in range(1000):
+        sv.rx(0, math.pi / 3)
+    norm = sv.tensor.abs().sum()
+    assert not torch.isnan(norm) and not torch.isinf(norm) 
