@@ -93,6 +93,7 @@ class QuantumCircuit:
         *,
         dtype: torch.dtype | None = None,
         device: str | torch.device | None = None,
+        jit: bool = False,
     ) -> torch.Tensor:
         """Выполнить схему и вернуть итоговый ``torch.Tensor`` состояния.
 
@@ -100,9 +101,17 @@ class QuantumCircuit:
         изменение его приведёт к изменению состояния.
         """
         sv = StateVector(self.num_qubits, dtype=dtype, device=device)
-        for name, args in self._ops:
-            getattr(sv, name)(*args)  # динамический вызов метода по названию
-        return sv.tensor
+
+        def _run():
+            for name, args in self._ops:
+                getattr(sv, name)(*args)
+            return sv.tensor
+
+        if jit and hasattr(torch, "compile") and sv.dtype in (torch.float32, torch.float64):
+            compiled = torch.compile(_run, mode="max-autotune")
+            return compiled()
+        else:
+            return _run()
 
     # ------------------------------------------------------------------
     # Измерения высокоуровневые

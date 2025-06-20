@@ -109,3 +109,10 @@ def test_circuit_expect():
     assert torch.allclose(x0, torch.tensor(1.0, dtype=torch.float32, device=x0.device))
     assert torch.allclose(z1, torch.tensor(1.0, dtype=torch.float32, device=z1.device))
     assert torch.allclose(zz, torch.tensor(0.0, dtype=torch.float32, device=zz.device)) 
+
+def test_simulate_jit():
+    circ = QuantumCircuit(2)
+    circ.h(0).cx(0,1)
+    state_jit = circ.simulate(jit=True)
+    state_ref = circ.simulate()
+    assert torch.allclose(state_jit, state_ref, atol=1e-6) 
