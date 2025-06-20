@@ -96,3 +96,16 @@ def test_pauli_expectations():
     assert torch.allclose(sv.exp_x(0), torch.tensor(1.0, dtype=torch.float32, device=sv.device))
     sv.z(0)
     assert torch.allclose(sv.exp_x(0), torch.tensor(-1.0, dtype=torch.float32, device=sv.device)) 
+
+def test_circuit_expect():
+    circ = QuantumCircuit(2)
+    circ.h(0)
+    expectations = circ.expect([
+        ("X", 0),
+        ("Z", 1),
+        ("ZZ", [0, 1]),
+    ])
+    x0, z1, zz = expectations
+    assert torch.allclose(x0, torch.tensor(1.0, dtype=torch.float32, device=x0.device))
+    assert torch.allclose(z1, torch.tensor(1.0, dtype=torch.float32, device=z1.device))
+    assert torch.allclose(zz, torch.tensor(0.0, dtype=torch.float32, device=zz.device)) 

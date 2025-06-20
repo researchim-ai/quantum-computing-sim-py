@@ -274,51 +274,48 @@ class StateVector:
         self.rz(qubit, phi)
 
     # ---------------------------------------------------------------------
+    # Вспомогательные
+    # ---------------------------------------------------------------------
+    def _mask(self, qubit: int) -> int:
+        """Возвращает битовую маску, соответствующую ``qubit`` с учётом big-endian хранения."""
+        return 1 << (self.num_qubits - qubit - 1)
+
+    # ---------------------------------------------------------------------
     # Ожидания операторов Паули
     # ---------------------------------------------------------------------
     def exp_z(self, qubit: int) -> torch.Tensor:
         """⟨Z₍q₎⟩."""
-        mask = 1 << qubit
+        mask = self._mask(qubit)
         idx = torch.arange(self.tensor.numel(), device=self.device)
-        sign = 1 - 2 * ((idx & mask) != 0).to(self.tensor)
+        sign = 1 - 2 * (((idx & mask) != 0).to(self.tensor))
         return (sign * (self.tensor.abs() ** 2)).sum().real
 
     def exp_x(self, qubit: int) -> torch.Tensor:
-        """⟨X₍q₎⟩ = 2·Re⟨ψ|0⟩⟨1|ψ⟩."""
-        mask = 1 << qubit
-        dim = self.tensor.numel()
-        idx0 = torch.arange(dim >> 1, device=self.device)
-        # embed idx0 into full index with bit 0 at qubit
-        left_mask = mask - 1
-        high_bits = idx0 & ~left_mask
-        low_bits = idx0 & left_mask
-        idx_a = (high_bits << 1) | low_bits  # bit 0 at qubit
-        idx_b = idx_a | mask  # flipped qubit
-        amp_a = self.tensor[idx_a]
-        amp_b = self.tensor[idx_b]
-        return 2 * torch.real((amp_a.conj() * amp_b).sum()).real
+        """Ожидание X на ``qubit`` (⟨X⟩)."""
+        mask = self._mask(qubit)
+        idx = torch.arange(self.tensor.numel(), device=self.device)
+        idx0 = idx[(idx & mask) == 0]
+        idx1 = idx0 ^ mask
+        amp0 = self.tensor[idx0]
+        amp1 = self.tensor[idx1]
+        return (2 * torch.real((amp0.conj() * amp1).sum())).real
 
     def exp_y(self, qubit: int) -> torch.Tensor:
-        """⟨Y₍q₎⟩ = 2·Im⟨ψ|1⟩⟨0|ψ⟩."""
-        mask = 1 << qubit
-        dim = self.tensor.numel()
-        idx0 = torch.arange(dim >> 1, device=self.device)
-        left_mask = mask - 1
-        high_bits = idx0 & ~left_mask
-        low_bits = idx0 & left_mask
-        idx_a = (high_bits << 1) | low_bits
-        idx_b = idx_a | mask
-        amp_a = self.tensor[idx_a]
-        amp_b = self.tensor[idx_b]
-        # ⟨Y⟩ = 2·Im(⟨a|b⟩)  with phase 1
-        return 2 * torch.imag((amp_a.conj() * amp_b).sum()).real
+        """Ожидание Y на ``qubit``."""
+        mask = self._mask(qubit)
+        idx = torch.arange(self.tensor.numel(), device=self.device)
+        idx0 = idx[(idx & mask) == 0]
+        idx1 = idx0 ^ mask
+        amp0 = self.tensor[idx0]
+        amp1 = self.tensor[idx1]
+        # Y expectation: 2*Im( conj(a)*b )
+        return (2 * torch.imag((amp0.conj() * amp1).sum())).real
 
     def exp_z_string(self, qubits: Sequence[int]) -> torch.Tensor:
         """Ожидание тензорного произведения ZᵢZⱼ…"""
-        mask = 0
-        for q in qubits:
-            mask |= 1 << q
         idx = torch.arange(self.tensor.numel(), device=self.device)
-        parity = ((idx & mask).bit_count() % 2 == 1).to(self.tensor)  # 1 если нечётное число 1
-        sign = 1 - 2 * parity
+        sign = torch.ones_like(idx, dtype=self.tensor.dtype)
+        for q in qubits:
+            m = self._mask(q)
+            sign *= 1 - 2 * (((idx & m) != 0).to(self.tensor))
         return (sign * (self.tensor.abs() ** 2)).sum().real 

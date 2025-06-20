@@ -138,6 +138,45 @@ class QuantumCircuit:
         return sv.counts(shots=shots, qubits=qubits, bit_order=bit_order)
 
     # ------------------------------------------------------------------
+    # Ожидание наблюдаемых
+    # ------------------------------------------------------------------
+    def expect(
+        self,
+        observables: Sequence[tuple[str, Sequence[int] | int]],
+        *,
+        dtype: torch.dtype | None = None,
+        device: str | torch.device | None = None,
+    ) -> list[torch.Tensor]:
+        """Вычислить ожидания заданных наблюдаемых.
+
+        Параметры
+        ----------
+        observables:
+            Список кортежей ``(name, qubits)``.  Поддерживаемые ``name``:
+            "X", "Y", "Z" (однокубитные) и "ZZ" (произведение Z по нескольким qubits).
+            ``qubits`` — индекс кубита (int) или последовательность индексов.
+        """
+        sv = StateVector(self.num_qubits, dtype=dtype, device=device)
+        for name, args in self._ops:
+            getattr(sv, name)(*args)
+
+        results: list[torch.Tensor] = []
+        for name, qs in observables:
+            if isinstance(qs, int):
+                qs = [qs]
+            if name == "X":
+                results.append(sv.exp_x(qs[0]))
+            elif name == "Y":
+                results.append(sv.exp_y(qs[0]))
+            elif name == "Z":
+                results.append(sv.exp_z(qs[0]))
+            elif name == "ZZ":
+                results.append(sv.exp_z_string(qs))
+            else:
+                raise ValueError(f"Unsupported observable: {name}")
+        return results
+
+    # ------------------------------------------------------------------
     # Удобства
     # ------------------------------------------------------------------
     def __repr__(self) -> str:  # pragma: no cover
