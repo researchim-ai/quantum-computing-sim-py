@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import Any, List, Tuple
+from typing import Any, List, Tuple, Sequence
 
 import torch
 
@@ -103,6 +103,39 @@ class QuantumCircuit:
         for name, args in self._ops:
             getattr(sv, name)(*args)  # динамический вызов метода по названию
         return sv.tensor
+
+    # ------------------------------------------------------------------
+    # Измерения высокоуровневые
+    # ------------------------------------------------------------------
+    def sample(
+        self,
+        *,
+        shots: int = 1024,
+        qubits: Sequence[int] | None = None,
+        bit_order: str = "little",
+        dtype: torch.dtype | None = None,
+        device: str | torch.device | None = None,
+    ) -> torch.Tensor:
+        """Симулирует схему и возвращает выборку битов size=(shots, len(qubits))."""
+        sv = StateVector(self.num_qubits, dtype=dtype, device=device)
+        for name, args in self._ops:
+            getattr(sv, name)(*args)
+        return sv.sample_bits(shots=shots, qubits=qubits, bit_order=bit_order)
+
+    def counts(
+        self,
+        *,
+        shots: int = 1024,
+        qubits: Sequence[int] | None = None,
+        bit_order: str = "little",
+        dtype: torch.dtype | None = None,
+        device: str | torch.device | None = None,
+    ) -> dict[str, int]:
+        """Симулирует схему и возвращает словарь bitstring → частота."""
+        sv = StateVector(self.num_qubits, dtype=dtype, device=device)
+        for name, args in self._ops:
+            getattr(sv, name)(*args)
+        return sv.counts(shots=shots, qubits=qubits, bit_order=bit_order)
 
     # ------------------------------------------------------------------
     # Удобства

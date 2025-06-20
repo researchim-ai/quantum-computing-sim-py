@@ -77,3 +77,22 @@ def test_counts():
         assert bs in {"00", "01"}
 
     # little-endian order; allow variability 
+
+def test_circuit_sample_counts():
+    circ = QuantumCircuit(2)
+    circ.h(0)
+    shots = 500
+    samples = circ.sample(shots=shots)
+    assert samples.shape == (shots, 2)
+    cnts = circ.counts(shots=shots)
+    assert sum(cnts.values()) == shots
+    assert set(cnts.keys()).issubset({"00", "01"}) 
+
+def test_pauli_expectations():
+    sv = StateVector(1)
+    sv.h(0)
+    # |+> state
+    assert torch.allclose(sv.exp_z(0), torch.tensor(0.0, dtype=torch.float32, device=sv.device))
+    assert torch.allclose(sv.exp_x(0), torch.tensor(1.0, dtype=torch.float32, device=sv.device))
+    sv.z(0)
+    assert torch.allclose(sv.exp_x(0), torch.tensor(-1.0, dtype=torch.float32, device=sv.device)) 

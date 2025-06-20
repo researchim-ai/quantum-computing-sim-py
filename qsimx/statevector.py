@@ -271,4 +271,54 @@ class StateVector:
         """U3(θ, φ, λ) = Rz(φ) · Ry(θ) · Rz(λ)."""
         self.rz(qubit, lam)
         self.ry(qubit, theta)
-        self.rz(qubit, phi) 
+        self.rz(qubit, phi)
+
+    # ---------------------------------------------------------------------
+    # Ожидания операторов Паули
+    # ---------------------------------------------------------------------
+    def exp_z(self, qubit: int) -> torch.Tensor:
+        """⟨Z₍q₎⟩."""
+        mask = 1 << qubit
+        idx = torch.arange(self.tensor.numel(), device=self.device)
+        sign = 1 - 2 * ((idx & mask) != 0).to(self.tensor)
+        return (sign * (self.tensor.abs() ** 2)).sum().real
+
+    def exp_x(self, qubit: int) -> torch.Tensor:
+        """⟨X₍q₎⟩ = 2·Re⟨ψ|0⟩⟨1|ψ⟩."""
+        mask = 1 << qubit
+        dim = self.tensor.numel()
+        idx0 = torch.arange(dim >> 1, device=self.device)
+        # embed idx0 into full index with bit 0 at qubit
+        left_mask = mask - 1
+        high_bits = idx0 & ~left_mask
+        low_bits = idx0 & left_mask
+        idx_a = (high_bits << 1) | low_bits  # bit 0 at qubit
+        idx_b = idx_a | mask  # flipped qubit
+        amp_a = self.tensor[idx_a]
+        amp_b = self.tensor[idx_b]
+        return 2 * torch.real((amp_a.conj() * amp_b).sum()).real
+
+    def exp_y(self, qubit: int) -> torch.Tensor:
+        """⟨Y₍q₎⟩ = 2·Im⟨ψ|1⟩⟨0|ψ⟩."""
+        mask = 1 << qubit
+        dim = self.tensor.numel()
+        idx0 = torch.arange(dim >> 1, device=self.device)
+        left_mask = mask - 1
+        high_bits = idx0 & ~left_mask
+        low_bits = idx0 & left_mask
+        idx_a = (high_bits << 1) | low_bits
+        idx_b = idx_a | mask
+        amp_a = self.tensor[idx_a]
+        amp_b = self.tensor[idx_b]
+        # ⟨Y⟩ = 2·Im(⟨a|b⟩)  with phase 1
+        return 2 * torch.imag((amp_a.conj() * amp_b).sum()).real
+
+    def exp_z_string(self, qubits: Sequence[int]) -> torch.Tensor:
+        """Ожидание тензорного произведения ZᵢZⱼ…"""
+        mask = 0
+        for q in qubits:
+            mask |= 1 << q
+        idx = torch.arange(self.tensor.numel(), device=self.device)
+        parity = ((idx & mask).bit_count() % 2 == 1).to(self.tensor)  # 1 если нечётное число 1
+        sign = 1 - 2 * parity
+        return (sign * (self.tensor.abs() ** 2)).sum().real 
