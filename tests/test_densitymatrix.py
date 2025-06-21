@@ -35,4 +35,13 @@ def test_phase_damp():
     rho.h(0)  # состояние |+⟩
     rho.phase_damp(0, gamma=1.0)
     expected = torch.tensor([[0.5, 0.0], [0.0, 0.5]], dtype=rho.dtype, device=rho.device)
-    assert torch.allclose(rho.tensor, expected, atol=1e-6) 
+    assert torch.allclose(rho.tensor, expected, atol=1e-6)
+
+
+def test_apply_kraus_identity():
+    rho = DensityMatrix(1)
+    rho.x(0)
+    before = rho.tensor.clone()
+    eye = torch.eye(2, dtype=rho.dtype, device=rho.device)
+    rho.apply_kraus(0, [eye])
+    assert torch.allclose(rho.tensor, before, atol=1e-6) 

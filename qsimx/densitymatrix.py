@@ -107,6 +107,30 @@ class DensityMatrix:
         return torch.eye(dim, dtype=self.dtype, device=self.device) / dim
 
     # ------------------------------------------------------------------
+    # Универсальное применение Крауса
+    # ------------------------------------------------------------------
+    def apply_kraus(self, qubit: int | Sequence[int], kraus: Sequence[torch.Tensor]):
+        """Применить набор операторов Крауса к указанному кубиту(ам).
+
+        Пока поддерживается один кубит (``qubit`` — ``int``).
+        """
+        if isinstance(qubit, Sequence):  # pragma: no cover — пока не поддерживается
+            raise NotImplementedError("multi-qubit Kraus embedding ещё не реализован")
+
+        q: int = int(qubit)
+        new_rho = torch.zeros_like(self.tensor)
+        I2 = torch.eye(2, dtype=self.dtype, device=self.device)
+        for K in kraus:
+            # строим K ⊗ I_rest
+            mats = [(K.to(self.tensor) if idx == q else I2) for idx in range(self.num_qubits)]
+            U = mats[0]
+            for m in mats[1:]:
+                U = torch.kron(U, m)
+            new_rho += U @ self.tensor @ U.conj().T
+        self.tensor = new_rho
+        self._maybe_rescale()
+
+    # ------------------------------------------------------------------
     # Метрики
     # ------------------------------------------------------------------
     def trace(self) -> torch.Tensor:
@@ -122,18 +146,7 @@ class DensityMatrix:
         g = torch.tensor(gamma, dtype=self.tensor.real.dtype, device=self.device)
         k0 = torch.tensor([[1.0, 0.0], [0.0, torch.sqrt(1 - g)]], dtype=self.dtype, device=self.device)
         k1 = torch.tensor([[0.0, torch.sqrt(g)], [0.0, 0.0]], dtype=self.dtype, device=self.device)
-        kraus = [k0, k1]
-        new_rho = torch.zeros_like(self.tensor)
-        for K in kraus:
-            mats = []
-            for q in range(self.num_qubits):
-                mats.append(K if q == qubit else torch.eye(2, dtype=self.dtype, device=self.device))
-            U = mats[0]
-            for m in mats[1:]:
-                U = torch.kron(U, m)
-            new_rho += U @ self.tensor @ U.conj().T
-        self.tensor = new_rho
-        self._maybe_rescale()
+        self.apply_kraus(qubit, [k0, k1])
 
     # ------------------------------------------------------------------
     # Шум: фазовая релаксация
@@ -145,23 +158,10 @@ class DensityMatrix:
         g = torch.tensor(gamma, dtype=self.tensor.real.dtype, device=self.device)
         sqrt_g = torch.sqrt(g)
         sqrt_1mg = torch.sqrt(1 - g)
-        # K0 = √(1-γ) * I
         k0 = torch.eye(2, dtype=self.tensor.real.dtype, device=self.device) * sqrt_1mg
-        # Projectors
         k1 = torch.diag(torch.tensor([sqrt_g, 0.0], dtype=self.tensor.real.dtype, device=self.device))
         k2 = torch.diag(torch.tensor([0.0, sqrt_g], dtype=self.tensor.real.dtype, device=self.device))
-        kraus = [k0.to(self.tensor), k1.to(self.tensor), k2.to(self.tensor)]
-        new_rho = torch.zeros_like(self.tensor)
-        for K in kraus:
-            mats = []
-            for q in range(self.num_qubits):
-                mats.append(K if q == qubit else torch.eye(2, dtype=self.dtype, device=self.device))
-            U = mats[0]
-            for m in mats[1:]:
-                U = torch.kron(U, m)
-            new_rho += U @ self.tensor @ U.conj().T
-        self.tensor = new_rho
-        self._maybe_rescale()
+        self.apply_kraus(qubit, [k0, k1, k2])
 
     # ------------------------------------------------------------------
     # Внутреннее: авто-рескейл для mixed precision
