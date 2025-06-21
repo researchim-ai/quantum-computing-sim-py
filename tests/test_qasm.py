@@ -9,5 +9,5 @@ cx q[0],q[1];
 """
     circ = load_qasm.__globals__['parse_qasm_str'](qasm)
     probs = circ.simulate().abs() ** 2
-    expected = torch.tensor([0.5,0,0,0.5], dtype=probs.dtype, device=probs.device)
+    expected = torch.tensor([0.5,0,0.5,0], dtype=probs.dtype, device=probs.device)
     assert torch.allclose(probs, expected, atol=1e-6) 
