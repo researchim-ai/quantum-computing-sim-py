@@ -30,4 +30,16 @@ h q[0];
     cmd = [sys.executable, '-m', 'qsimx.cli', 'run', str(qasm), '--backend', 'density', '--noise', 'pd:1.0']
     out = subprocess.check_output(cmd, text=True)
     probs = eval(out.strip())
-    assert all(abs(p - 0.5) < 1e-3 for p in probs) 
+    assert all(abs(p - 0.5) < 1e-3 for p in probs)
+
+
+def test_cli_bit_flip(tmp_path):
+    qasm = tmp_path / 'zero.qasm'
+    qasm.write_text('''OPENQASM 2.0;
+qreg q[1];
+''')
+    cmd = [sys.executable, '-m', 'qsimx.cli', 'run', str(qasm), '--backend', 'density', '--noise', 'bf:1.0']
+    out = subprocess.check_output(cmd, text=True)
+    probs = eval(out.strip())
+    # ожидаем вероятность 1 для состояния |1>
+    assert abs(probs[1] - 1.0) < 1e-3 

@@ -164,6 +164,18 @@ class DensityMatrix:
         self.apply_kraus(qubit, [k0, k1, k2])
 
     # ------------------------------------------------------------------
+    # Шум: бит-флип (X) канал
+    # ------------------------------------------------------------------
+    def bit_flip(self, qubit: int, p: float):
+        """Bit-flip (Pauli-X) канал: ρ → (1−p)ρ + p X ρ X."""
+        if not (0 <= p <= 1):
+            raise ValueError
+        x_gate = torch.tensor([[0, 1], [1, 0]], dtype=self.dtype, device=self.device)
+        k0 = torch.sqrt(torch.tensor(1 - p, dtype=self.tensor.real.dtype, device=self.device)) * torch.eye(2, dtype=self.tensor.real.dtype, device=self.device)
+        k1 = torch.sqrt(torch.tensor(p, dtype=self.tensor.real.dtype, device=self.device)) * x_gate
+        self.apply_kraus(qubit, [k0, k1])
+
+    # ------------------------------------------------------------------
     # Внутреннее: авто-рескейл для mixed precision
     # ------------------------------------------------------------------
     def _maybe_rescale(self) -> None:

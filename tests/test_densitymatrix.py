@@ -44,4 +44,12 @@ def test_apply_kraus_identity():
     before = rho.tensor.clone()
     eye = torch.eye(2, dtype=rho.dtype, device=rho.device)
     rho.apply_kraus(0, [eye])
-    assert torch.allclose(rho.tensor, before, atol=1e-6) 
+    assert torch.allclose(rho.tensor, before, atol=1e-6)
+
+
+def test_bit_flip():
+    rho = DensityMatrix(1)
+    # начальное |0><0|
+    rho.bit_flip(0, p=1.0)
+    expected = torch.tensor([[0.0, 0.0], [0.0, 1.0]], dtype=rho.dtype, device=rho.device)
+    assert torch.allclose(rho.tensor, expected, atol=1e-6) 

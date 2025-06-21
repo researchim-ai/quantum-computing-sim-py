@@ -91,6 +91,10 @@ def main(argv: list[str] | None = None) -> None:
                     g = float(args.noise.split(":")[1])
                     for q in range(circ.num_qubits):
                         rho.phase_damp(q, g)
+                elif args.noise.startswith("bf"):
+                    p = float(args.noise.split(":")[1])
+                    for q in range(circ.num_qubits):
+                        rho.bit_flip(q, p)
             print(rho.probabilities().cpu().tolist())
     else:
         parser.print_help()
