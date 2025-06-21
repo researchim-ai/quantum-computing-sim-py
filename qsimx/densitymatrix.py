@@ -176,6 +176,27 @@ class DensityMatrix:
         self.apply_kraus(qubit, [k0, k1])
 
     # ------------------------------------------------------------------
+    # Шум: phase-flip (Z) и bit-phase-flip (Y)
+    # ------------------------------------------------------------------
+    def phase_flip(self, qubit: int, p: float):
+        """Phase-flip (Pauli-Z) канал: ρ → (1−p)ρ + p Z ρ Z."""
+        if not (0 <= p <= 1):
+            raise ValueError
+        z_gate = torch.tensor([[1, 0], [0, -1]], dtype=self.dtype, device=self.device)
+        k0 = torch.sqrt(torch.tensor(1 - p, dtype=self.tensor.real.dtype, device=self.device)) * torch.eye(2, dtype=self.tensor.real.dtype, device=self.device)
+        k1 = torch.sqrt(torch.tensor(p, dtype=self.tensor.real.dtype, device=self.device)) * z_gate
+        self.apply_kraus(qubit, [k0, k1])
+
+    def y_flip(self, qubit: int, p: float):
+        """Bit-phase-flip (Pauli-Y) канал: ρ → (1−p)ρ + p Y ρ Y."""
+        if not (0 <= p <= 1):
+            raise ValueError
+        y_gate = torch.tensor([[0, -1j], [1j, 0]], dtype=self.dtype, device=self.device)
+        k0 = torch.sqrt(torch.tensor(1 - p, dtype=self.tensor.real.dtype, device=self.device)) * torch.eye(2, dtype=self.tensor.real.dtype, device=self.device)
+        k1 = torch.sqrt(torch.tensor(p, dtype=self.tensor.real.dtype, device=self.device)) * y_gate
+        self.apply_kraus(qubit, [k0, k1])
+
+    # ------------------------------------------------------------------
     # Внутреннее: авто-рескейл для mixed precision
     # ------------------------------------------------------------------
     def _maybe_rescale(self) -> None:

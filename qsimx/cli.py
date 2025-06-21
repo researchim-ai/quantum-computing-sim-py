@@ -95,6 +95,14 @@ def main(argv: list[str] | None = None) -> None:
                     p = float(args.noise.split(":")[1])
                     for q in range(circ.num_qubits):
                         rho.bit_flip(q, p)
+                elif args.noise.startswith("pf"):
+                    p = float(args.noise.split(":")[1])
+                    for q in range(circ.num_qubits):
+                        rho.phase_flip(q, p)
+                elif args.noise.startswith("yf"):
+                    p = float(args.noise.split(":")[1])
+                    for q in range(circ.num_qubits):
+                        rho.y_flip(q, p)
             print(rho.probabilities().cpu().tolist())
     else:
         parser.print_help()

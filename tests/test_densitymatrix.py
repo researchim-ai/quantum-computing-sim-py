@@ -52,4 +52,20 @@ def test_bit_flip():
     # начальное |0><0|
     rho.bit_flip(0, p=1.0)
     expected = torch.tensor([[0.0, 0.0], [0.0, 1.0]], dtype=rho.dtype, device=rho.device)
+    assert torch.allclose(rho.tensor, expected, atol=1e-6)
+
+
+def test_phase_flip():
+    rho = DensityMatrix(1)
+    rho.h(0)
+    rho.phase_flip(0, p=1.0)
+    expected = torch.tensor([[0.5, -0.5], [-0.5, 0.5]], dtype=rho.dtype, device=rho.device)
+    assert torch.allclose(rho.tensor, expected, atol=1e-6)
+
+
+def test_y_flip():
+    rho = DensityMatrix(1)
+    rho.h(0)
+    rho.y_flip(0, p=1.0)
+    expected = torch.tensor([[0.5, -0.5], [-0.5, 0.5]], dtype=rho.dtype, device=rho.device)
     assert torch.allclose(rho.tensor, expected, atol=1e-6) 
