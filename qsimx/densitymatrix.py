@@ -114,15 +114,33 @@ class DensityMatrix:
 
         Пока поддерживается один кубит (``qubit`` — ``int``).
         """
-        if isinstance(qubit, Sequence):  # pragma: no cover — пока не поддерживается
-            raise NotImplementedError("multi-qubit Kraus embedding ещё не реализован")
+        if isinstance(qubit, Sequence):
+            qubits = sorted(qubit)
+            k = len(qubits)
+            # Ограничение: подряд идущие кубиты
+            for i in range(k - 1):
+                if qubits[i] + 1 != qubits[i + 1]:  # pragma: no cover
+                    raise NotImplementedError("Kraus на непоследовательных кубитах пока не поддерживается")
+            first_q = qubits[0]
+        else:
+            qubits = None
+            q = int(qubit)
 
-        q: int = int(qubit)
         new_rho = torch.zeros_like(self.tensor)
         I2 = torch.eye(2, dtype=self.dtype, device=self.device)
         for K in kraus:
-            # строим K ⊗ I_rest
-            mats = [(K.to(self.tensor) if idx == q else I2) for idx in range(self.num_qubits)]
+            if qubits is None:
+                mats = [(K.to(self.tensor) if idx == q else I2) for idx in range(self.num_qubits)]
+            else:
+                mats = []
+                idx = 0
+                while idx < self.num_qubits:
+                    if idx == first_q:
+                        mats.append(K.to(self.tensor))
+                        idx += len(qubits)
+                    else:
+                        mats.append(I2)
+                        idx += 1
             U = mats[0]
             for m in mats[1:]:
                 U = torch.kron(U, m)
