@@ -33,6 +33,8 @@ def main(argv: list[str] | None = None) -> None:
     run_p.add_argument("-d", "--device", default="cpu")
     run_p.add_argument("-b", "--backend", choices=["statevector", "density"], default="statevector")
     run_p.add_argument("--noise", help="шумовой канал, напр. 'depol:0.05' или 'ad:0.1'")
+    run_p.add_argument("--dtype", choices=["c64", "c128", "f32", "f64"], default="c64",
+                        help="dtype: комплексный64/128 или вещественный 32/64 (для statevector)")
 
     args = parser.parse_args(argv)
 
@@ -59,12 +61,21 @@ def main(argv: list[str] | None = None) -> None:
             circ = QuantumCircuit(max_q + 1)
             for name, qs in ops:
                 getattr(circ, name)(*qs)
+        # выбор dtype
+        dtype_map = {
+            "c64": torch.complex64,
+            "c128": torch.complex128,
+            "f32": torch.float32,
+            "f64": torch.float64,
+        }
+        dtype_sel = dtype_map.get(args.dtype, torch.complex64)
+
         if args.backend == "statevector":
-            state = circ.simulate(device=args.device)
+            state = circ.simulate(device=args.device, dtype=dtype_sel)
             print(state.cpu().tolist())
         else:
             from .densitymatrix import DensityMatrix
-            rho = DensityMatrix(circ.num_qubits, device=args.device)
+            rho = DensityMatrix(circ.num_qubits, device=args.device, dtype=dtype_sel)
             for name, args_ in circ._ops:
                 getattr(rho, name)(*args_)
             if args.noise:

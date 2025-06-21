@@ -17,12 +17,14 @@ class DensityMatrix:
         *,
         dtype: torch.dtype | None = None,
         device: str | torch.device | None = None,
+        autorescale: bool = False,
     ) -> None:
         if num_qubits <= 0:
             raise ValueError("num_qubits ≥ 1")
         self.num_qubits = num_qubits
         self.dtype = dtype or torch.complex64
         self.device = torch.device(device or ("cuda" if torch.cuda.is_available() else "cpu"))
+        self.autorescale = autorescale
         dim = 1 << num_qubits
         self.tensor = torch.zeros((dim, dim), dtype=self.dtype, device=self.device)
         self.tensor[0, 0] = 1.0 + 0j  # |0><0|
@@ -43,6 +45,7 @@ class DensityMatrix:
         for m in mats[1:]:
             U_full = torch.kron(U_full, m)
         self.tensor = U_full @ self.tensor @ U_full.conj().T
+        self._maybe_rescale()
 
     def h(self, qubit: int):
         inv = 1 / math.sqrt(2)
@@ -79,6 +82,7 @@ class DensityMatrix:
         U[cols, rows] = 1
         # ρ -> U ρ U†
         self.tensor = U @ self.tensor @ U.conj().T
+        self._maybe_rescale()
 
     # ------------------------------------------------------------------
     # Шум: деполяризующий канал
@@ -95,6 +99,7 @@ class DensityMatrix:
         mask = 1 << qubit
         mixed = self._partial_mixed(qubit)
         self.tensor = (1 - p) * self.tensor + p * mixed
+        self._maybe_rescale()
 
     def _partial_mixed(self, qubit: int) -> torch.Tensor:
         """Возвращает состояние I/2 на qubit ⊗ I_rest/2^{n-1}."""
@@ -128,6 +133,7 @@ class DensityMatrix:
                 U = torch.kron(U, m)
             new_rho += U @ self.tensor @ U.conj().T
         self.tensor = new_rho
+        self._maybe_rescale()
 
     # ------------------------------------------------------------------
     # Шум: фазовая релаксация
@@ -155,3 +161,16 @@ class DensityMatrix:
                 U = torch.kron(U, m)
             new_rho += U @ self.tensor @ U.conj().T
         self.tensor = new_rho
+        self._maybe_rescale()
+
+    # ------------------------------------------------------------------
+    # Внутреннее: авто-рескейл для mixed precision
+    # ------------------------------------------------------------------
+    def _maybe_rescale(self) -> None:
+        if not getattr(self, "autorescale", False):
+            return
+        max_abs = self.tensor.abs().max()
+        if max_abs > 32.0:
+            self.tensor /= max_abs
+        elif max_abs < 1e-4 and max_abs != 0.0:
+            self.tensor /= max_abs
