@@ -79,30 +79,30 @@ def main(argv: list[str] | None = None) -> None:
             for name, args_ in circ._ops:
                 getattr(rho, name)(*args_)
             if args.noise:
-                if args.noise.startswith("depol"):
-                    p = float(args.noise.split(":")[1])
-                    for q in range(circ.num_qubits):
-                        rho.depolarize(q, p)
-                elif args.noise.startswith("ad"):
-                    g = float(args.noise.split(":")[1])
-                    for q in range(circ.num_qubits):
-                        rho.amplitude_damp(q, g)
-                elif args.noise.startswith("pd"):
-                    g = float(args.noise.split(":")[1])
-                    for q in range(circ.num_qubits):
-                        rho.phase_damp(q, g)
-                elif args.noise.startswith("bf"):
-                    p = float(args.noise.split(":")[1])
-                    for q in range(circ.num_qubits):
-                        rho.bit_flip(q, p)
-                elif args.noise.startswith("pf"):
-                    p = float(args.noise.split(":")[1])
-                    for q in range(circ.num_qubits):
-                        rho.phase_flip(q, p)
-                elif args.noise.startswith("yf"):
-                    p = float(args.noise.split(":")[1])
-                    for q in range(circ.num_qubits):
-                        rho.y_flip(q, p)
+                for spec in args.noise.split(','):
+                    spec = spec.strip()
+                    if not spec:
+                        continue
+                    tag, val = spec.split(':')
+                    val_f = float(val)
+                    if tag == "depol":
+                        for q in range(circ.num_qubits):
+                            rho.depolarize(q, val_f)
+                    elif tag == "ad":
+                        for q in range(circ.num_qubits):
+                            rho.amplitude_damp(q, val_f)
+                    elif tag == "pd":
+                        for q in range(circ.num_qubits):
+                            rho.phase_damp(q, val_f)
+                    elif tag == "bf":
+                        for q in range(circ.num_qubits):
+                            rho.bit_flip(q, val_f)
+                    elif tag == "pf":
+                        for q in range(circ.num_qubits):
+                            rho.phase_flip(q, val_f)
+                    elif tag == "yf":
+                        for q in range(circ.num_qubits):
+                            rho.y_flip(q, val_f)
             print(rho.probabilities().cpu().tolist())
     else:
         parser.print_help()

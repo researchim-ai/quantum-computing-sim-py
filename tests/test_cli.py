@@ -65,4 +65,17 @@ qreg q[1];
     cmd = [sys.executable, '-m', 'qsimx.cli', 'run', str(qasm), '--backend', 'density', '--noise', 'yf:1.0']
     out = subprocess.check_output(cmd, text=True)
     probs = eval(out.strip())
-    assert abs(probs[1] - 1.0) < 1e-3 
+    assert abs(probs[1] - 1.0) < 1e-3
+
+
+def test_cli_combined_noise(tmp_path):
+    qasm = tmp_path / 'comb.qasm'
+    qasm.write_text('''OPENQASM 2.0;
+qreg q[1];
+h q[0];
+''')
+    cmd = [sys.executable, '-m', 'qsimx.cli', 'run', str(qasm), '--backend', 'density', '--noise', 'pd:0.5,bf:0.5']
+    out = subprocess.check_output(cmd, text=True)
+    probs = eval(out.strip())
+    # сложно точное, проверим нормировку
+    assert abs(sum(probs) - 1.0) < 1e-6 
