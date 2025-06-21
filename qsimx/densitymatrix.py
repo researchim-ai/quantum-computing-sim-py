@@ -127,4 +127,31 @@ class DensityMatrix:
             for m in mats[1:]:
                 U = torch.kron(U, m)
             new_rho += U @ self.tensor @ U.conj().T
-        self.tensor = new_rho 
+        self.tensor = new_rho
+
+    # ------------------------------------------------------------------
+    # Шум: фазовая релаксация
+    # ------------------------------------------------------------------
+    def phase_damp(self, qubit: int, gamma: float):
+        """Фазовая релаксация (T₂ / phase damping).  Параметр ``gamma`` — вероятность потери когерентности (0 ≤ γ ≤ 1)."""
+        if not (0 <= gamma <= 1):
+            raise ValueError
+        g = torch.tensor(gamma, dtype=self.tensor.real.dtype, device=self.device)
+        sqrt_g = torch.sqrt(g)
+        sqrt_1mg = torch.sqrt(1 - g)
+        # K0 = √(1-γ) * I
+        k0 = torch.eye(2, dtype=self.tensor.real.dtype, device=self.device) * sqrt_1mg
+        # Projectors
+        k1 = torch.diag(torch.tensor([sqrt_g, 0.0], dtype=self.tensor.real.dtype, device=self.device))
+        k2 = torch.diag(torch.tensor([0.0, sqrt_g], dtype=self.tensor.real.dtype, device=self.device))
+        kraus = [k0.to(self.tensor), k1.to(self.tensor), k2.to(self.tensor)]
+        new_rho = torch.zeros_like(self.tensor)
+        for K in kraus:
+            mats = []
+            for q in range(self.num_qubits):
+                mats.append(K if q == qubit else torch.eye(2, dtype=self.dtype, device=self.device))
+            U = mats[0]
+            for m in mats[1:]:
+                U = torch.kron(U, m)
+            new_rho += U @ self.tensor @ U.conj().T
+        self.tensor = new_rho

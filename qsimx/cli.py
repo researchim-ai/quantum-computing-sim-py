@@ -76,6 +76,10 @@ def main(argv: list[str] | None = None) -> None:
                     g = float(args.noise.split(":")[1])
                     for q in range(circ.num_qubits):
                         rho.amplitude_damp(q, g)
+                elif args.noise.startswith("pd"):
+                    g = float(args.noise.split(":")[1])
+                    for q in range(circ.num_qubits):
+                        rho.phase_damp(q, g)
             print(rho.probabilities().cpu().tolist())
     else:
         parser.print_help()
