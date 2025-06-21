@@ -19,4 +19,12 @@ def test_depolarize_channel():
     rho = DensityMatrix(1)
     rho.depolarize(0, p=1.0)
     expected = torch.tensor([[0.5, 0.0], [0.0, 0.5]], dtype=rho.dtype, device=rho.device)
+    assert torch.allclose(rho.tensor, expected, atol=1e-6)
+
+
+def test_amplitude_damp():
+    rho = DensityMatrix(1)
+    rho.x(0)  # подготовить |1><1|
+    rho.amplitude_damp(0, gamma=1.0)
+    expected = torch.tensor([[1.0, 0.0], [0.0, 0.0]], dtype=rho.dtype, device=rho.device)
     assert torch.allclose(rho.tensor, expected, atol=1e-6) 

@@ -108,4 +108,23 @@ class DensityMatrix:
         return torch.real(torch.trace(self.tensor))
 
     def probabilities(self) -> torch.Tensor:
-        return torch.real(torch.diag(self.tensor)) 
+        return torch.real(torch.diag(self.tensor))
+
+    def amplitude_damp(self, qubit: int, gamma: float):
+        """Амплитудная релаксация (T1): параметр ``gamma`` = 1-exp(-t/T1)."""
+        if not (0 <= gamma <= 1):
+            raise ValueError
+        g = torch.tensor(gamma, dtype=self.tensor.real.dtype, device=self.device)
+        k0 = torch.tensor([[1.0, 0.0], [0.0, torch.sqrt(1 - g)]], dtype=self.dtype, device=self.device)
+        k1 = torch.tensor([[0.0, torch.sqrt(g)], [0.0, 0.0]], dtype=self.dtype, device=self.device)
+        kraus = [k0, k1]
+        new_rho = torch.zeros_like(self.tensor)
+        for K in kraus:
+            mats = []
+            for q in range(self.num_qubits):
+                mats.append(K if q == qubit else torch.eye(2, dtype=self.dtype, device=self.device))
+            U = mats[0]
+            for m in mats[1:]:
+                U = torch.kron(U, m)
+            new_rho += U @ self.tensor @ U.conj().T
+        self.tensor = new_rho 
