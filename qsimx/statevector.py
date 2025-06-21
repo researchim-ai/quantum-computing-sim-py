@@ -153,19 +153,49 @@ class StateVector:
         if not (0 <= control < n and 0 <= target < n):
             raise IndexError("Неверный индекс кубита")
 
-        # Маски битов
+        if self.tensor.is_cuda:
+            try:
+                from .kernels.cx_triton import apply_cx  # noqa: WPS433
+                apply_cx(self.tensor, control, target)
+                self._maybe_rescale()
+                return
+            except Exception:  # pragma: no cover
+                pass
+
+        # CPU fallback
         control_mask = 1 << control
         target_mask = 1 << target
         dim = 1 << n
         idx = torch.arange(dim, device=self.device)
-        cond = (idx & control_mask) != 0  # контрольный бит = 1
+        cond = (idx & control_mask) != 0
         idx_target0 = idx[cond & ((idx & target_mask) == 0)]
-        idx_target1 = idx_target0 | target_mask  # переключаем target бит
-
-        # Сwap амплитуд
+        idx_target1 = idx_target0 | target_mask
         temp = self.tensor[idx_target0].clone()
         self.tensor[idx_target0] = self.tensor[idx_target1]
         self.tensor[idx_target1] = temp
+        self._maybe_rescale()
+
+    def cz(self, control: int, target: int) -> None:
+        """Контролируемый Z: умножает амплитуды |11⟩ на -1."""
+        if control == target:
+            raise ValueError("control и target должны различаться")
+        n = self.num_qubits
+        if not (0 <= control < n and 0 <= target < n):
+            raise IndexError("Неверный индекс кубита")
+        if self.tensor.is_cuda:
+            try:
+                from .kernels.cz_triton import apply_cz  # noqa: WPS433
+                apply_cz(self.tensor, control, target)
+                self._maybe_rescale()
+                return
+            except Exception:
+                pass
+        control_mask = 1 << control
+        target_mask = 1 << target
+        dim = 1 << n
+        idx = torch.arange(dim, device=self.device)
+        cond = ((idx & control_mask) != 0) & ((idx & target_mask) != 0)
+        self.tensor[cond] *= -1
         self._maybe_rescale()
 
     # ---------------------------------------------------------------------
@@ -178,32 +208,25 @@ class StateVector:
         n = self.num_qubits
         if not (0 <= qubit1 < n and 0 <= qubit2 < n):
             raise IndexError("Неверный индекс кубита")
+        if self.tensor.is_cuda:
+            try:
+                from .kernels.swap_triton import apply_swap  # noqa: WPS433
+                apply_swap(self.tensor, qubit1, qubit2)
+                self._maybe_rescale()
+                return
+            except Exception:
+                pass
+
         mask1 = 1 << qubit1
         mask2 = 1 << qubit2
         dim = 1 << n
         idx = torch.arange(dim, device=self.device)
-        # индексы, где биты различаются (01)
         cond = ((idx & mask1) == 0) & ((idx & mask2) != 0)
         idx_a = idx[cond]
         idx_b = idx_a ^ (mask1 | mask2)
         temp = self.tensor[idx_a].clone()
         self.tensor[idx_a] = self.tensor[idx_b]
         self.tensor[idx_b] = temp
-        self._maybe_rescale()
-
-    def cz(self, control: int, target: int) -> None:
-        """Контролируемый Z: умножает амплитуды |11⟩ на -1."""
-        if control == target:
-            raise ValueError("control и target должны различаться")
-        n = self.num_qubits
-        if not (0 <= control < n and 0 <= target < n):
-            raise IndexError("Неверный индекс кубита")
-        control_mask = 1 << control
-        target_mask = 1 << target
-        dim = 1 << n
-        idx = torch.arange(dim, device=self.device)
-        cond = ((idx & control_mask) != 0) & ((idx & target_mask) != 0)
-        self.tensor[cond] *= -1
         self._maybe_rescale()
 
     # ---------------------------------------------------------------------
