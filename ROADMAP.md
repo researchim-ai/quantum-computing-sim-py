@@ -29,6 +29,7 @@
 > • DensityMatrix класс + depolarizing/amplitude-damp Kraus.  
 > • Оптимизация гейтов через Triton-kernels.  
 > • **CUDA/Triton-kernels** для однокубитных гейтов и CX (Tensor Core, fusion).  
+> • **Benchmark script CPU vs GPU с подсчётом памяти** ✅.  
 > • **CUDA Graphs** — кеш сценария схемы, уменьшение Python-overhead.  
 > • **Мульти-GPU slicing** (NCCL All-to-All, overlap compute/comm).
 

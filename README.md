@@ -3,23 +3,51 @@ Quantum computing simulator
 
 Минимальный квантовый симулятор на PyTorch.
 
-## Benchmark
+## Возможности
 
-Для оценки ускорения Triton-backend добавлен скрипт `bench/bench_speed.py`.
+* **State-vector** и **Density-matrix** backend'ы на `torch.Tensor` (autograd-ready).
+* Поддержка однокубитных, двухкубитных (CX, CZ, SWAP) и универсального `U3` гейта.
+* Kraus-шумовые каналы: depolarizing, amplitude-damp.
+* **GPU-ускорение** через Triton-kernels для single, CX, CZ, SWAP.
+* CLI `qsimx run` с QASM-парсером и опциями `--backend`, `--noise`.
+* RL-среда `CircuitDesignEnv` (Gymnasium-совместимая).
+* **Бенчмарк** скрипт `bench/bench_speed.py` (CPU vs CUDA, учёт памяти).
+* Полное покрытие PyTest + Sphinx-документация.
+
+## Установка
 
 ```bash
-# 20 кубитов, глубина 1024
-python bench/bench_speed.py -n 20 -d 1024
+pip install -r requirements.txt  # или poetry install
 ```
 
-Вывод (пример, RTX 3080):
-```
-Qubits 20 Depth 1024
-CPU-einsum : 12.34 s
-CUDA-fast  : 1.95 s
+## Быстрый пример
+
+```python
+from qsimx import QuantumCircuit
+
+circ = QuantumCircuit(2)
+circ.h(0).cx(0, 1)
+state = circ.simulate(device="cuda")
+print(state.abs() ** 2)  # [0.5, 0, 0, 0.5]
 ```
 
-На небольших схемах GPU может проигрывать из-за накладных расходов, поэтому в тестах проверяется как минимум двукратное ускорение на более глубокой цепочке.
+Запуск из CLI:
+
+```bash
+qsimx run "H0,CX0-1" --device cuda
+```
+
+## Benchmark
+
+Скрипт `bench/bench_speed.py` сравнивает CPU-einsum и GPU-Triton.
+
+```bash
+# 30 кубитов, глубина 512, запускаем на GPU0 и CPU
+python bench/bench_speed.py -n 30 -d 512 \
+       --devices cuda:0,cpu --dtype c64
+```
+
+> На небольших схемах и глубинах GPU-вариант может быть медленнее из-за оверхеда запуска ядер, поэтому в CI-тестах проверяется ускорение на глубине 256 и выше.
 
 ```python
 import torch

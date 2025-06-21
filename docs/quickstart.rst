@@ -13,7 +13,13 @@
 
 .. code-block:: bash
 
-   qsimx run "H0,CX0-1"
+   qsimx run "H0,CX0-1" --device cuda
+
+Benchmark (CPU vs GPU):
+
+.. code-block:: bash
+
+   python bench/bench_speed.py -n 24 -d 512 --devices cuda,cpu
 
 QASM файл:
 
