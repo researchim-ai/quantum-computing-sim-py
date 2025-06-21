@@ -27,7 +27,10 @@
 > **Ближайшие доработки Этапа 1**  
 > • Mixed precision (FP16/BF16) + авто-rescale (частично: autorescale готов, нужны FP16-kernels).  
 > • DensityMatrix класс + depolarizing/amplitude-damp Kraus.  
-> • Оптимизация гейтов через Triton-kernels.
+> • Оптимизация гейтов через Triton-kernels.  
+> • **CUDA/Triton-kernels** для однокубитных гейтов и CX (Tensor Core, fusion).  
+> • **CUDA Graphs** — кеш сценария схемы, уменьшение Python-overhead.  
+> • **Мульти-GPU slicing** (NCCL All-to-All, overlap compute/comm).
 
 ---
 
@@ -37,6 +40,7 @@
 * **Квантовая коррекция**: готовые коды (Шор, Surface-17) + быстрый MWPM-декодер.
 * **Аналоговый режим**: Trotter/Suzuki эволюция, моделирование пульсов с скрытым ODE-решателем.
 * **Авто-дифференцируемые операции** (adjoint method, parameter-shift).
+* **Дополнительные каналы**: amplitude-damp (γ), phase-damp, универсальный Lindblad супер-оператор.
 
 ---
 
@@ -55,6 +59,11 @@
    * Экспорт «строка — описание схемы / строка — результат» + токенизаторы.
    * Скрипты генерации batched симуляций на GPU-кластере.
 
+* **Градиенты**
+  * Adjoint back-prop (чек-пойнты, O(m·2ⁿ)).
+  * Parameter-shift / finite-diff fallback.
+  * JAX backend через host_callback.
+
 ---
 
 ### Этап 4. Масштабирование и оптимизация
@@ -64,6 +73,7 @@
 * **Distributed Tensor Networks** (MPI + GPU-RDMA).
 * **JIT-компиляция** горячих путей через NVIDIA CUDA Graphs / AMD HIP graph.
 * **Профилировщик**: встроенный трейсер (Chrome Trace).
+* **Авто-backend-scheduler**: statevector / stabilizer / TN / slicing по размеру схемы и шуму.
 
 ---
 
@@ -73,6 +83,8 @@
 * **Веб-дашборд** (FastAPI + React): визуализация схемы, live-графики использования GPU/памяти.
 * **Визуализатор гейт-пульсов** (Plotly WebGL).
 * Полная документация (Sphinx + Markdown-кодсниппеты).
+* **CLI v2**: `--backend auto`, `--noise depol:0.01`, вывод Chrome-Trace.
+* **Chrome Trace** профилировщик (`with qsimx.trace()`).
 
 ---
 
@@ -91,6 +103,7 @@
 1. **Научная верификация**: сравнение с экспериментами IBM & IonQ, публикация arXiv-препринта.
 2. **Бенчмарк-отчёт**: таблица *speed-up vs qubits* против cuQuantum vX.Y, qsim vZ.
 3. **Open-source релиз** (Apache-2.0), гайдлайн для контрибьюторов, RFC-процесс.
+4. **Property-based тесты (Hypothesis)** против Qiskit Aer / Stim.
 
 ---
 
