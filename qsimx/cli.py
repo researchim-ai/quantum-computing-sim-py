@@ -29,13 +29,20 @@ def main(argv: list[str] | None = None) -> None:
     sub = parser.add_subparsers(dest="cmd")
 
     run_p = sub.add_parser("run", help="запустить схемy")
-    run_p.add_argument("expr", help="строка c операциями, напр. 'H0,CX0-1'")
+    run_p.add_argument("expr", help="строка c операциями, напр. 'H0,CX0-1' или путь к .qasm')")
     run_p.add_argument("-d", "--device", default="cpu")
+    run_p.add_argument("-b", "--backend", choices=["statevector", "density"], default="statevector")
+    run_p.add_argument("--noise", help="шумовой канал, напр. 'depol:0.05' или 'ad:0.1'")
 
     args = parser.parse_args(argv)
 
     if args.cmd == "run":
-        circ = QuantumCircuit(0)
+        # expr может быть файлом .qasm
+        if args.expr.endswith(".qasm"):
+            from . import load_qasm
+            circ = load_qasm(args.expr)
+        else:
+            circ = QuantumCircuit(0)
         for gate_tok in args.expr.split(','):
             g = gate_tok.strip()
             if not g:
@@ -54,8 +61,24 @@ def main(argv: list[str] | None = None) -> None:
                 circ.cx(control, target)
             else:
                 print(f"Неизвестный токен '{g}'", file=sys.stderr)
-        state = circ.simulate(device=args.device)
-        print(state.cpu())
+        if args.backend == "statevector":
+            state = circ.simulate(device=args.device)
+            print(state.cpu())
+        else:
+            from .densitymatrix import DensityMatrix
+            rho = DensityMatrix(circ.num_qubits, device=args.device)
+            for name, args_ in circ._ops:
+                getattr(rho, name)(*args_)
+            if args.noise:
+                if args.noise.startswith("depol"):
+                    p = float(args.noise.split(":")[1])
+                    for q in range(circ.num_qubits):
+                        rho.depolarize(q, p)
+                elif args.noise.startswith("ad"):
+                    g = float(args.noise.split(":")[1])
+                    for q in range(circ.num_qubits):
+                        rho.amplitude_damp(q, g)
+            print(rho.probabilities().cpu())
     else:
         parser.print_help()
 
