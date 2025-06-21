@@ -55,12 +55,22 @@ class StateVector:
         if not (0 <= qubit < n):
             raise IndexError("Неверный индекс кубита")
 
-        # Меняем shape: (..., 2, ...). Axis = 1 соответствует qubit.
-        dim_left = 1 << qubit  # 2**qubit
+        # Попытка GPU-kernel
+        if self.tensor.is_cuda and gate.is_cuda:
+            try:
+                from .kernels.single_triton import apply_single  # noqa: WPS433
+
+                apply_single(self.tensor, gate, qubit)
+                self._maybe_rescale()
+                return
+            except Exception:  # pragma: no cover
+                # fallback ниже
+                pass
+
+        # CPU или fallback path — einsum
+        dim_left = 1 << qubit
         dim_right = 1 << (n - qubit - 1)
         sv = self.tensor.view(dim_left, 2, dim_right)
-        # einsum: a,b -> new amplitude
-        # gate @ [amp0, amp1]
         self.tensor = torch.einsum("ab, ibj -> iaj", gate.to(self.tensor), sv).reshape(-1)
         self._maybe_rescale()
 
