@@ -42,28 +42,26 @@ def main(argv: list[str] | None = None) -> None:
             from . import load_qasm
             circ = load_qasm(args.expr)
         else:
-            circ = QuantumCircuit(0)
-        for gate_tok in args.expr.split(','):
-            g = gate_tok.strip()
-            if not g:
-                continue
-            if g[0] in {'H', 'X', 'Y', 'Z'}:
-                qubit = int(g[1:])
-                if circ.num_qubits <= qubit:
-                    circ = QuantumCircuit(qubit + 1).merge(circ) if hasattr(circ, 'merge') else QuantumCircuit(qubit+1)
-                getattr(circ, g[0].lower())(qubit)
-            elif g.upper().startswith('CX'):
-                rest = g[2:]
-                control, target = map(int, rest.split('-'))
-                nqubits = max(control, target) + 1
-                if circ.num_qubits < nqubits:
-                    circ = QuantumCircuit(nqubits).merge(circ) if hasattr(circ, 'merge') else QuantumCircuit(nqubits)
-                circ.cx(control, target)
-            else:
-                print(f"Неизвестный токен '{g}'", file=sys.stderr)
+            tokens = [tok.strip() for tok in args.expr.split(',') if tok.strip()]
+            max_q = 0
+            ops: list[tuple[str, list[int]]] = []
+            for g in tokens:
+                if g[0] in {'H', 'X', 'Y', 'Z'}:
+                    qubit = int(g[1:])
+                    ops.append((g[0].lower(), [qubit]))
+                    max_q = max(max_q, qubit)
+                elif g.upper().startswith('CX'):
+                    control, target = map(int, g[2:].split('-'))
+                    ops.append(("cx", [control, target]))
+                    max_q = max(max_q, control, target)
+                else:
+                    print(f"Неизвестный токен '{g}'", file=sys.stderr)
+            circ = QuantumCircuit(max_q + 1)
+            for name, qs in ops:
+                getattr(circ, name)(*qs)
         if args.backend == "statevector":
             state = circ.simulate(device=args.device)
-            print(state.cpu())
+            print(state.cpu().tolist())
         else:
             from .densitymatrix import DensityMatrix
             rho = DensityMatrix(circ.num_qubits, device=args.device)
@@ -78,7 +76,7 @@ def main(argv: list[str] | None = None) -> None:
                     g = float(args.noise.split(":")[1])
                     for q in range(circ.num_qubits):
                         rho.amplitude_damp(q, g)
-            print(rho.probabilities().cpu())
+            print(rho.probabilities().cpu().tolist())
     else:
         parser.print_help()
 
