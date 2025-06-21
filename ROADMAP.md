@@ -14,15 +14,20 @@
 
 * **Архитектура плагино-модулей**:
 
-  * *State-vector* (double / complex64).
-  * *Stabilizer* для Clifford-подобных схем.
-  * *Tensor Network* с авто-поиском contraction path.
-  * *Density-matrix* и *Kraus*-шум.
+  * *State-vector* (double / complex64). **✅ MVP на PyTorch готов (complex64, autograd, JIT-флаг).**
+  * *Stabilizer* для Clifford-подобных схем. *(todo)*
+  * *Tensor Network* с авто-поиском contraction path. *(todo)*
+  * *Density-matrix* и *Kraus*-шум. *(в работе – следующий шаг)*
 * **Высокопроизводительные ядра**:
 
-  * Кузов CUDA + cutensor/cutensornet.
-  * Мульти-GPU через NCCL + нарезка состояния (Schmidt-слайсинг).
-  * CPU-fallback с AVX-512/NEON.
+  * Кузов CUDA + cutensor/cutensornet. *(todo)*
+  * Мульти-GPU через NCCL + нарезка состояния (Schmidt-слайсинг). *(todo)*
+  * CPU-fallback с AVX-512/NEON. *(todo)*
+
+> **Ближайшие доработки Этапа 1**  
+> • Mixed precision (FP16/BF16) + авто-rescale (частично: autorescale готов, нужны FP16-kernels).  
+> • DensityMatrix класс + depolarizing/amplitude-damp Kraus.  
+> • Оптимизация гейтов через Triton-kernels.
 
 ---
 
